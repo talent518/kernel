@@ -594,6 +594,16 @@ static void __sock_release(struct socket *sock, struct inode *inode)
 	if (sock->ops) {
 		struct module *owner = sock->ops->owner;
 
+	#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+		if(sock->ioac && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+			if(sock->ioac & IOAC_ACCEPT) {
+				current->ioac.accept_closes ++;
+			} else {
+				current->ioac.connect_closes ++;
+			}
+		}
+	#endif // @author abao -- end
+
 		if (inode)
 			inode_lock(inode);
 		sock->ops->release(sock);
@@ -655,6 +665,14 @@ static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg)
 				     inet_sendmsg, sock, msg,
 				     msg_data_left(msg));
 	BUG_ON(ret == -EIOCBQUEUED);
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(ret > 0 && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		current->ioac.send_bytes += ret;
+		current->ioac.send_times ++;
+	}
+#endif // @author abao -- end
+
 	return ret;
 }
 
@@ -670,6 +688,13 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg)
 {
 	int err = security_socket_sendmsg(sock, msg,
 					  msg_data_left(msg));
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(err > 0 && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		current->ioac.send_bytes += err;
+		current->ioac.send_times ++;
+	}
+#endif // @author abao -- end
 
 	return err ?: sock_sendmsg_nosec(sock, msg);
 }
@@ -885,9 +910,18 @@ INDIRECT_CALLABLE_DECLARE(int inet6_recvmsg(struct socket *, struct msghdr *,
 static inline int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
 				     int flags)
 {
-	return INDIRECT_CALL_INET(sock->ops->recvmsg, inet6_recvmsg,
+	int err = INDIRECT_CALL_INET(sock->ops->recvmsg, inet6_recvmsg,
 				  inet_recvmsg, sock, msg, msg_data_left(msg),
 				  flags);
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(err > 0 && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		current->ioac.recv_bytes += err;
+		current->ioac.recv_times ++;
+	}
+#endif // @author abao -- end
+
+	return err;
 }
 
 /**
@@ -902,6 +936,13 @@ static inline int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
 int sock_recvmsg(struct socket *sock, struct msghdr *msg, int flags)
 {
 	int err = security_socket_recvmsg(sock, msg, msg_data_left(msg), flags);
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(err > 0 && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		current->ioac.recv_bytes += err;
+		current->ioac.recv_times ++;
+	}
+#endif // @author abao -- end
 
 	return err ?: sock_recvmsg_nosec(sock, msg, flags);
 }
@@ -1755,6 +1796,14 @@ int __sys_accept4_file(struct file *file, unsigned file_flags,
 
 	fd_install(newfd, newfile);
 	err = newfd;
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(sock->ops->family == AF_INET || sock->ops->family == AF_INET6) {
+		sock->ioac |= IOAC_ACCEPT;
+		current->ioac.accepts++;
+	}
+#endif // @author abao -- end
+
 out:
 	return err;
 out_fd:
@@ -1829,13 +1878,20 @@ int __sys_connect_file(struct file *file, struct sockaddr_storage *address,
 		goto out;
 	}
 
-	err =
-	    security_socket_connect(sock, (struct sockaddr *)address, addrlen);
+	err = security_socket_connect(sock, (struct sockaddr *)address, addrlen);
 	if (err)
 		goto out;
 
 	err = sock->ops->connect(sock, (struct sockaddr *)address, addrlen,
 				 sock->file->f_flags | file_flags);
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(!err && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		sock->ioac |= IOAC_CONNECT;
+		current->ioac.connects++;
+	}
+#endif // @author abao -- end
+
 out:
 	return err;
 }
@@ -3577,7 +3633,16 @@ EXPORT_SYMBOL(kernel_accept);
 int kernel_connect(struct socket *sock, struct sockaddr *addr, int addrlen,
 		   int flags)
 {
-	return sock->ops->connect(sock, addr, addrlen, flags);
+	int err = sock->ops->connect(sock, addr, addrlen, flags);
+
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+	if(!err && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		sock->ioac |= IOAC_CONNECT;
+		current->ioac.connects++;
+	}
+#endif // @author abao -- end
+
+	return err;
 }
 EXPORT_SYMBOL(kernel_connect);
 

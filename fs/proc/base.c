@@ -2954,14 +2954,30 @@ static int do_io_accounting(struct task_struct *task, struct seq_file *m, int wh
 		   "syscw: %llu\n"
 		   "read_bytes: %llu\n"
 		   "write_bytes: %llu\n"
-		   "cancelled_write_bytes: %llu\n",
+		   "cancelled_write_bytes: %llu\n"
+		   "accepts: %llu\n" // @author abao
+		   "accept_closes: %llu\n" // @author abao
+		   "connects: %llu\n" // @author abao
+		   "connect_closes: %llu\n" // @author abao
+		   "recv_bytes: %llu\n" // @author abao
+		   "recv_times: %llu\n" // @author abao
+		   "send_bytes: %llu\n" // @author abao
+		   "send_times: %llu\n", // @author abao
 		   (unsigned long long)acct.rchar,
 		   (unsigned long long)acct.wchar,
 		   (unsigned long long)acct.syscr,
 		   (unsigned long long)acct.syscw,
 		   (unsigned long long)acct.read_bytes,
 		   (unsigned long long)acct.write_bytes,
-		   (unsigned long long)acct.cancelled_write_bytes);
+		   (unsigned long long)acct.cancelled_write_bytes,
+		   (unsigned long long)acct.accepts, // @author abao
+		   (unsigned long long)acct.accept_closes, // @author abao
+		   (unsigned long long)acct.connects, // @author abao
+		   (unsigned long long)acct.connect_closes, // @author abao
+		   (unsigned long long)acct.recv_bytes, // @author abao
+		   (unsigned long long)acct.recv_times, // @author abao
+		   (unsigned long long)acct.send_bytes, // @author abao
+		   (unsigned long long)acct.send_times); // @author abao
 	result = 0;
 
 out_unlock:

@@ -101,6 +101,11 @@ struct socket_wq {
 	struct rcu_head		rcu;
 } ____cacheline_aligned_in_smp;
 
+typedef enum { // @author abao -- begin
+	IOAC_ACCEPT = 1<<0,
+	IOAC_CONNECT = 1<<1,
+} socket_ioac; // @author abao -- end
+
 /**
  *  struct socket - general BSD socket
  *  @state: socket state (%SS_CONNECTED, etc)
@@ -113,6 +118,7 @@ struct socket_wq {
  */
 struct socket {
 	socket_state		state;
+	socket_ioac			ioac; // @author abao
 
 	short			type;
 

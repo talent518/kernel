@@ -52,6 +52,15 @@ static inline void task_blk_io_accounting_add(struct task_io_accounting *dst,
 	dst->read_bytes += src->read_bytes;
 	dst->write_bytes += src->write_bytes;
 	dst->cancelled_write_bytes += src->cancelled_write_bytes;
+
+	dst->accepts += src->accepts; // @author abao
+	dst->accept_closes += src->accept_closes; // @author abao
+	dst->connects += src->connects; // @author abao
+	dst->connect_closes += src->connect_closes; // @author abao
+	dst->recv_bytes += src->recv_bytes; // @author abao
+	dst->recv_times += src->recv_times; // @author abao
+	dst->send_bytes += src->send_bytes; // @author abao
+	dst->send_times += src->send_times; // @author abao
 }
 
 #else

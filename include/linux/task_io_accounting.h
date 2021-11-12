@@ -42,5 +42,14 @@ struct task_io_accounting {
 	 * information loss in doing that.
 	 */
 	u64 cancelled_write_bytes;
+
+	u64 accepts; // @author abao
+	u64 accept_closes; // @author abao
+	u64 connects; // @author abao
+	u64 connect_closes; // @author abao
+	u64 recv_bytes; // @author abao
+	u64 recv_times; // @author abao
+	u64 send_bytes; // @author abao
+	u64 send_times; // @author abao
 #endif /* CONFIG_TASK_IO_ACCOUNTING */
 };

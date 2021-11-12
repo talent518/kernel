@@ -103,7 +103,8 @@ struct socket_wq {
 
 typedef enum { // @author abao -- begin
 	IOAC_ACCEPT = 1<<0,
-	IOAC_CONNECT = 1<<1,
+	IOAC_CONNECTING = 1<<1,
+	IOAC_CONNECTED = 1<<2,
 } socket_ioac; // @author abao -- end
 
 /**

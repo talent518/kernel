@@ -598,7 +598,7 @@ static void __sock_release(struct socket *sock, struct inode *inode)
 		if(sock->ioac && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
 			if(sock->ioac & IOAC_ACCEPT) {
 				current->ioac.accept_closes ++;
-			} else {
+			} else if(sock->ioac && IOAC_CONNECTED) {
 				current->ioac.connect_closes ++;
 			}
 		}
@@ -1284,7 +1284,16 @@ static __poll_t sock_poll(struct file *file, poll_table *wait)
 		flag = POLL_BUSY_LOOP;
 	}
 
-	return sock->ops->poll(file, sock, wait) | flag;
+	events = sock->ops->poll(file, sock, wait) | flag;
+
+	if((sock->ioac & IOAC_CONNECTING) && (events & POLLWRNORM) && (events & POLLOUT) && !sock_error(sock->sk) && sock->sk->sk_err_soft == 0) {
+		printk(KERN_ERR "sock_poll %d", events);
+		sock->ioac ^= IOAC_CONNECTING;
+		sock->ioac |= IOAC_CONNECTED;
+		current->ioac.connects++;
+	}
+
+	return events;
 }
 
 static int sock_mmap(struct file *file, struct vm_area_struct *vma)
@@ -1886,9 +1895,13 @@ int __sys_connect_file(struct file *file, struct sockaddr_storage *address,
 				 sock->file->f_flags | file_flags);
 
 #ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
-	if(!err && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
-		sock->ioac |= IOAC_CONNECT;
-		current->ioac.connects++;
+	if(sock->type == SOCK_STREAM && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		if(err == -EINPROGRESS) {
+			sock->ioac |= IOAC_CONNECTING;
+		} else if(err == 0) {
+			sock->ioac |= IOAC_CONNECTED;
+			current->ioac.connects++;
+		}
 	}
 #endif // @author abao -- end
 
@@ -3636,9 +3649,13 @@ int kernel_connect(struct socket *sock, struct sockaddr *addr, int addrlen,
 	int err = sock->ops->connect(sock, addr, addrlen, flags);
 
 #ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
-	if(!err && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
-		sock->ioac |= IOAC_CONNECT;
-		current->ioac.connects++;
+	if(sock->type == SOCK_STREAM && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
+		if(err == -EINPROGRESS) {
+			sock->ioac |= IOAC_CONNECTING;
+		} else if(err == 0) {
+			sock->ioac |= IOAC_CONNECTED;
+			current->ioac.connects++;
+		}
 	}
 #endif // @author abao -- end
 

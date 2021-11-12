@@ -1287,7 +1287,7 @@ static __poll_t sock_poll(struct file *file, poll_table *wait)
 	events = sock->ops->poll(file, sock, wait) | flag;
 
 	if((sock->ioac & IOAC_CONNECTING) && (events & POLLWRNORM) && (events & POLLOUT) && !sock_error(sock->sk) && sock->sk->sk_err_soft == 0) {
-		printk(KERN_ERR "sock_poll %d", events);
+		// printk(KERN_ERR "sock_poll %d", events);
 		sock->ioac ^= IOAC_CONNECTING;
 		sock->ioac |= IOAC_CONNECTED;
 		current->ioac.connects++;

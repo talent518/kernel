@@ -2329,6 +2329,8 @@ static __latent_entropy struct task_struct *copy_process(
 	trace_task_newtask(p, clone_flags);
 	uprobe_copy_process(p, clone_flags);
 
+    printk(KERN_INFO "PSTREE fork pid=%d, comm=%s, newpid=%d, is_kthread=%u", current->pid, current->comm, p->pid, !!(p->flags & PF_KTHREAD)); // @author abao
+
 	copy_oom_score_adj(clone_flags, p);
 
 	return p;

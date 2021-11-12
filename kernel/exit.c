@@ -729,6 +729,8 @@ void __noreturn do_exit(long code)
 	struct task_struct *tsk = current;
 	int group_dead;
 
+    printk(KERN_INFO "PSTREE exit pid=%d, comm=%s, code=%ld", current->pid, current->comm, code); // @author abao
+
 	/*
 	 * We can get here from a kernel oops, sometimes with preemption off.
 	 * Start by checking for critical errors.

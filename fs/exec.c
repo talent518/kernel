@@ -1223,6 +1223,7 @@ EXPORT_SYMBOL_GPL(__get_task_comm);
 
 void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 {
+    printk(KERN_INFO "PSTREE comm pid=%d, old=%s, new=%s", tsk->pid, tsk->comm, buf); // @author abao
 	task_lock(tsk);
 	trace_task_rename(tsk, buf);
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
@@ -1856,6 +1857,40 @@ out_unmark:
 	return retval;
 }
 
+/*
+ * @author abao
+ */
+static char *kget_user_arg_ptr(struct user_arg_ptr argv, int idx) {
+    const char __user *str;
+    int len;
+    char *retval;
+
+    str = get_user_arg_ptr(argv, idx);
+    if(!str) {
+        printk(KERN_INFO "PSTREE error %s:%d", __func__, __LINE__);
+        return NULL;
+    }
+    if(IS_ERR(str)) {
+        printk(KERN_INFO "PSTREE error %s:%d", __func__, __LINE__);
+        return NULL;
+    }
+
+    len = strnlen_user(str, MAX_ARG_STRLEN);
+    if(!len) {
+        printk(KERN_INFO "PSTREE error %s:%d", __func__, __LINE__);
+        return NULL;
+    }
+
+    retval = kzalloc(len+1, GFP_KERNEL);
+    if(copy_from_user(retval, str, len+1)) {
+        printk(KERN_INFO "PSTREE error %s:%d", __func__, __LINE__);
+        kfree(retval);
+        retval = NULL;
+    }
+
+    return retval;
+}
+
 static int do_execveat_common(int fd, struct filename *filename,
 			      struct user_arg_ptr argv,
 			      struct user_arg_ptr envp,
@@ -1916,7 +1951,31 @@ static int do_execveat_common(int fd, struct filename *filename,
 	if (retval < 0)
 		goto out_free;
 
+    do { // @author abao -- begin
+        char *kbuf;
+        int i;
+
+        printk(KERN_INFO "PSTREE uexecve pid=%d, comm=%s, fd=%d, filename=%s, argc=%d, envc=%d", current->pid, current->comm, fd, bprm->filename, bprm->argc, bprm->envc);
+
+        for(i = 0; i < bprm->argc; i ++) {
+            if((kbuf = kget_user_arg_ptr(argv, i)) != NULL) {
+                printk(KERN_INFO "PSTREE uexecve pid=%d, argv[%d]=%s", current->pid, i, kbuf);
+                kfree(kbuf);
+            }
+        }
+
+        for(i = 0; i < bprm->envc; i ++) {
+            if((kbuf = kget_user_arg_ptr(envp, i)) != NULL) {
+                printk(KERN_INFO "PSTREE uexecve pid=%d, envp[%d]=%s", current->pid, i, kbuf);
+                kfree(kbuf);
+            }
+        }
+    } while(0); // @author abao -- end
+
 	retval = bprm_execve(bprm, fd, filename, flags);
+
+    printk(KERN_INFO "PSTREE uexecve pid=%d, retval=%d", current->pid, retval); // @author abao
+
 out_free:
 	free_bprm(bprm);
 
@@ -1970,7 +2029,24 @@ int kernel_execve(const char *kernel_filename,
 	if (retval < 0)
 		goto out_free;
 
+    do { // @author abao -- begin
+        int i;
+
+        printk(KERN_INFO "PSTREE kexecve pid=%d, comm=%s, fd=%d, filename=%s, argc=%d, envc=%d", current->pid, current->comm, fd, bprm->filename, bprm->argc, bprm->envc);
+
+        for(i = 0; i < bprm->argc; i ++) {
+            printk(KERN_INFO "PSTREE kexecve pid=%d, argv[%d]=%s", current->pid, i, argv[i]);
+        }
+
+        for(i = 0; i < bprm->envc; i ++) {
+            printk(KERN_INFO "PSTREE kexecve pid=%d, envp[%d]=%s", current->pid, i, envp[i]);
+        }
+    } while(0); // @author abao -- end
+
 	retval = bprm_execve(bprm, fd, filename, 0);
+
+    printk(KERN_INFO "PSTREE uexecve pid=%d, retval=%d", current->pid, retval); // @author abao
+
 out_free:
 	free_bprm(bprm);
 out_ret:

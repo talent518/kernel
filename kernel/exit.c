@@ -724,6 +724,56 @@ static void check_stack_usage(void)
 static inline void check_stack_usage(void) {}
 #endif
 
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+static void do_io_accounting(void)
+{
+	struct task_io_accounting acct = current->ioac;
+	unsigned long flags;
+	u64 *p, *end;
+
+	if (lock_task_sighand(current, &flags)) {
+		struct task_struct *t = current;
+
+		task_io_accounting_add(&acct, &current->signal->ioac);
+		while_each_thread(current, t)
+			task_io_accounting_add(&acct, &t->ioac);
+
+		unlock_task_sighand(current, &flags);
+	}
+
+	p = &acct.read_bytes;
+	end = &acct.send_times;
+	while(p <= end && *p == 0) p++;
+
+	if(p <= end)
+		printk(KERN_ERR "iostat pid: %d, comm: %s, "
+		   "read_bytes: %llu, "
+		   "write_bytes: %llu, "
+		   "accepts: %llu, "
+		   "accept_closes: %llu, "
+		   "connects: %llu, "
+		   "connect_closes: %llu, "
+		   "recv_bytes: %llu, "
+		   "recv_times: %llu, "
+		   "send_bytes: %llu, "
+		   "send_times: %llu",
+		   current->pid,
+		   current->comm,
+		   (unsigned long long)acct.read_bytes,
+		   (unsigned long long)acct.write_bytes,
+		   (unsigned long long)acct.accepts,
+		   (unsigned long long)acct.accept_closes,
+		   (unsigned long long)acct.connects,
+		   (unsigned long long)acct.connect_closes,
+		   (unsigned long long)acct.recv_bytes,
+		   (unsigned long long)acct.recv_times,
+		   (unsigned long long)acct.send_bytes,
+		   (unsigned long long)acct.send_times);
+}
+#else
+#define do_io_accounting()
+#endif // @author abao -- end
+
 void __noreturn do_exit(long code)
 {
 	struct task_struct *tsk = current;
@@ -819,6 +869,9 @@ void __noreturn do_exit(long code)
 	exit_shm(tsk);
 	exit_files(tsk);
 	exit_fs(tsk);
+
+	do_io_accounting(); // @author abao
+
 	if (group_dead)
 		disassociate_ctty(1);
 	exit_task_namespaces(tsk);

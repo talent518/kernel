@@ -724,6 +724,55 @@ static void check_stack_usage(void)
 static inline void check_stack_usage(void) {}
 #endif
 
+#ifdef CONFIG_TASK_IO_ACCOUNTING // @author abao -- begin
+static void do_io_accounting(void)
+{
+	struct task_io_accounting acct = current->ioac;
+	unsigned long flags;
+
+	if (lock_task_sighand(current, &flags)) {
+		struct task_struct *t = current;
+
+		task_io_accounting_add(&acct, &current->signal->ioac);
+		while_each_thread(current, t)
+			task_io_accounting_add(&acct, &t->ioac);
+
+		unlock_task_sighand(current, &flags);
+	}
+
+	if(acct.read_bytes || acct.write_bytes || acct.recv_bytes || acct.send_bytes)
+		printk(KERN_WARNING "IOSTAT pid: %d, comm: %s, "
+			"read_bytes: %llu, write_bytes: %llu, "
+			"recv_bytes: %llu, send_bytes: %llu",
+			current->pid, current->comm,
+			acct.read_bytes, acct.write_bytes,
+			acct.recv_bytes, acct.send_bytes
+		);
+	if(acct.accepts || acct.accept_closes || acct.connects || acct.connect_closes || acct.recv_times || acct.send_times)
+		printk(KERN_NOTICE "IOSTAT pid: %d, comm: %s, "
+			"accepts: %llu, accept_closes: %llu, "
+			"connects: %llu, connect_closes: %llu, "
+			"recv_times: %llu, send_times: %llu",
+			current->pid, current->comm,
+			acct.accepts, acct.accept_closes,
+			acct.connects, acct.connect_closes,
+			acct.recv_times, acct.send_times
+		);
+	if(acct.rchar || acct.wchar || acct.syscr || acct.syscw || acct.cancelled_write_bytes)
+		printk(KERN_INFO "IOSTAT pid: %d, comm: %s, "
+			"rchar: %llu, wchar: %llu, "
+			"syscr: %llu, syscw: %llu, "
+			"cancelled_write_bytes: %llu",
+			current->pid, current->comm,
+			acct.rchar, acct.wchar,
+			acct.syscr, acct.syscw,
+			acct.cancelled_write_bytes
+		);
+}
+#else
+#define do_io_accounting()
+#endif // @author abao -- end
+
 void __noreturn do_exit(long code)
 {
 	struct task_struct *tsk = current;
@@ -821,6 +870,9 @@ void __noreturn do_exit(long code)
 	exit_shm(tsk);
 	exit_files(tsk);
 	exit_fs(tsk);
+
+	do_io_accounting(); // @author abao
+
 	if (group_dead)
 		disassociate_ctty(1);
 	exit_task_namespaces(tsk);

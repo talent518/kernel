@@ -598,7 +598,7 @@ static void __sock_release(struct socket *sock, struct inode *inode)
 		if(sock->ioac && (sock->ops->family == AF_INET || sock->ops->family == AF_INET6)) {
 			if(sock->ioac & IOAC_ACCEPT) {
 				current->ioac.accept_closes ++;
-			} else if(sock->ioac && IOAC_CONNECTED) {
+			} else if(sock->ioac & IOAC_CONNECTED) {
 				current->ioac.connect_closes ++;
 			}
 		}
